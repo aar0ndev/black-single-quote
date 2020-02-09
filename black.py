@@ -190,6 +190,7 @@ class FileMode:
     target_versions: Set[TargetVersion] = field(default_factory=set)
     line_length: int = DEFAULT_LINE_LENGTH
     string_normalization: bool = True
+    single_quotes: bool = False
     is_pyi: bool = False
 
     def get_cache_key(self) -> str:
@@ -204,6 +205,7 @@ class FileMode:
             version_str,
             str(self.line_length),
             str(int(self.string_normalization)),
+            str(int(self.string_quotes)),
             str(int(self.is_pyi)),
         ]
         return ".".join(parts)
@@ -306,6 +308,12 @@ def target_version_option_callback(
     help="Don't normalize string quotes or prefixes.",
 )
 @click.option(
+    "-s",
+    "--single-quotes",
+    is_flag=True,
+    help="Normalize strings to single quotes.",
+)
+@click.option(
     "--check",
     is_flag=True,
     help=(
@@ -397,6 +405,7 @@ def main(
     pyi: bool,
     py36: bool,
     skip_string_normalization: bool,
+    single_quotes: bool,
     quiet: bool,
     verbose: bool,
     include: str,
@@ -426,6 +435,7 @@ def main(
         line_length=line_length,
         is_pyi=pyi,
         string_normalization=not skip_string_normalization,
+        single_quotes=single_quotes,
     )
     if config and verbose:
         out(f"Using configuration from {config}.", bold=False, fg="blue")
@@ -750,6 +760,7 @@ def format_str(src_contents: str, *, mode: FileMode) -> FileContent:
         or supports_feature(versions, Feature.UNICODE_LITERALS),
         is_pyi=mode.is_pyi,
         normalize_strings=mode.string_normalization,
+        single_quotes=mode.single_quotes,
     )
     elt = EmptyLineTracker(is_pyi=mode.is_pyi)
     empty_line = Line()
@@ -1706,6 +1717,7 @@ class LineGenerator(Visitor[Line]):
 
     is_pyi: bool = False
     normalize_strings: bool = True
+    single_quotes: bool = False
     current_line: Line = field(default_factory=Line)
     remove_u_prefix: bool = False
 
@@ -1748,7 +1760,7 @@ class LineGenerator(Visitor[Line]):
             normalize_prefix(node, inside_brackets=any_open_brackets)
             if self.normalize_strings and node.type == token.STRING:
                 normalize_string_prefix(node, remove_u_prefix=self.remove_u_prefix)
-                normalize_string_quotes(node)
+                normalize_string_quotes(node, single_quotes=self.single_quotes)
             if node.type == token.NUMBER:
                 normalize_numeric_literal(node)
             if node.type not in WHITESPACE:
@@ -2843,8 +2855,8 @@ def normalize_string_prefix(leaf: Leaf, remove_u_prefix: bool = False) -> None:
     leaf.value = f"{new_prefix}{match.group(2)}"
 
 
-def normalize_string_quotes(leaf: Leaf) -> None:
-    """Prefer double quotes but only if it doesn't cause more escaping.
+def normalize_string_quotes(leaf: Leaf, single_quotes: bool = False) -> None:
+    """Prefer single quotes but only if it doesn't cause more escaping.
 
     Adds or removes backslashes as appropriate. Doesn't parse and fix
     strings nested in f-strings (yet).
@@ -2913,8 +2925,11 @@ def normalize_string_quotes(leaf: Leaf) -> None:
     if new_escape_count > orig_escape_count:
         return  # Do not introduce more escaping
 
-    if new_escape_count == orig_escape_count and orig_quote == '"':
-        return  # Prefer double quotes
+    if single_quotes and new_escape_count == orig_escape_count and orig_quote == "'":
+        return  # Prefer single quotes
+
+    if not single_quotes and new_escape_count == orig_escape_count and orig_quote == '"':
+        return  # Prefer double quotes        
 
     leaf.value = f"{prefix}{new_quote}{new_body}{new_quote}"
 
