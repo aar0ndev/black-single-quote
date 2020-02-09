@@ -82,6 +82,7 @@ Options:
                                   piping source on standard input).
   -S, --skip-string-normalization
                                   Don't normalize string quotes or prefixes.
+  -s, --single-quotes             Normalize strings to single quotes.
   --check                         Don't write the files back, just return the
                                   status.  Return code 0 means nothing would
                                   change.  Return code 1 means some files
@@ -342,7 +343,8 @@ manually and _Black_ will keep it.
 
 _Black_ prefers double quotes (`"` and `"""`) over single quotes (`'` and `'''`). It
 will replace the latter with the former as long as it does not result in more backslash
-escapes than before.
+escapes than before. Use `--single-quotes` option to prefer single quotes over double 
+quotes.
 
 _Black_ also standardizes string prefixes, making them always lowercase. On top of that,
 if your code is already Python 3.6+ only or it's using the `unicode_literals` future
