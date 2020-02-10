@@ -205,7 +205,7 @@ class FileMode:
             version_str,
             str(self.line_length),
             str(int(self.string_normalization)),
-            str(int(self.string_quotes)),
+            str(int(self.single_quotes)),
             str(int(self.is_pyi)),
         ]
         return ".".join(parts)
